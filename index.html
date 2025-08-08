@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Task Manager + Local Chat (All-in-one)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f5f7fa; --card:#ffffff; --muted:#666; --accent:#2563eb;
+      --success:#16a34a; --warning:#f59e0b; --danger:#dc2626;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; background:var(--bg); color:#111}
+    .wrap{max-width:1000px; margin:18px auto; padding:16px;}
+    .card{background:var(--card); padding:14px; border-radius:10px; box-shadow:0 6px 18px rgba(20,20,50,0.06); margin-bottom:14px}
+    h1,h2,h3{margin:6px 0}
+    .row{display:flex; gap:12px; align-items:flex-start}
+    .col{flex:1}
+    button{cursor:pointer; border:0; padding:8px 10px; border-radius:8px; background:var(--accent); color:#fff}
+    button.ghost{background:transparent; color:var(--accent); border:1px solid #e6e9ef}
+    input, select, textarea {width:100%; padding:8px; border-radius:8px; border:1px solid #e6e9ef; margin-top:6px}
+    label{font-size:13px; color:var(--muted); display:block; margin-top:8px}
+    .small{font-size:13px; color:var(--muted)}
+    .flex{display:flex; gap:8px; align-items:center}
+    .right{margin-left:auto}
+    .actions{display:flex; gap:6px; flex-wrap:wrap}
+
+    .login-center{max-width:420px; margin:14px auto}
+
+    .task-item{border-radius:8px; padding:10px; margin:8px 0; display:flex; gap:12px; align-items:center; border:1px solid #eef2f7}
+    .task-meta{flex:1}
+    .task-title{font-weight:600}
+    .badge{padding:4px 8px; border-radius:999px; font-size:12px; display:inline-block}
+    .priority-high{background:rgba(220,38,38,0.12); color:var(--danger); border:1px solid rgba(220,38,38,0.12)}
+    .priority-med{background:rgba(245,158,11,0.12); color:var(--warning)}
+    .priority-low{background:rgba(16,185,129,0.08); color:var(--success)}
+
+    .deadline-good{color:var(--success)}
+    .deadline-soon{color:var(--warning)}
+    .deadline-over{color:var(--danger); font-weight:700}
+
+    .progress-bar{height:10px; background:#e6eef9; border-radius:999px; overflow:hidden; margin-top:8px}
+    .progress-fill{height:100%; background:linear-gradient(90deg,#4f46e5,#06b6d4); width:0%}
+
+    .attach-preview{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+    .attach-thumb{padding:6px; border:1px solid #eef2f7; border-radius:8px; font-size:12px}
+
+    .filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+
+    .stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px}
+    .stat{padding:10px; text-align:center; border-radius:8px}
+
+    .chat-window{display:flex; flex-direction:column; height:420px}
+    .chat-messages{flex:1; overflow:auto; padding:10px; border:1px solid #eef2f7; border-radius:8px; background:#fbfdff}
+    .message{margin-bottom:10px; max-width:78%;}
+    .message .meta{font-size:12px; color:var(--muted); margin-bottom:4px}
+    .msg-me{align-self:flex-end; background:linear-gradient(90deg,#60a5fa,#06b6d4); color:white; padding:8px; border-radius:10px 10px 3px 10px}
+    .msg-other{align-self:flex-start; background:#fff; padding:8px; border-radius:10px 10px 10px 3px; border:1px solid #eef2f7}
+    .msg-attach{margin-top:6px; display:flex; gap:6px; flex-wrap:wrap}
+    .attach-preview img{max-width:120px; max-height:100px; border-radius:6px; display:block}
+    .chat-input-row{display:flex; gap:8px; margin-top:8px; align-items:center}
+    .chat-input{flex:1; display:flex; gap:8px; align-items:center; padding:8px; border-radius:8px; border:1px solid #e6e9ef; background:white}
+    .plus-btn{background:transparent; border:0; font-size:18px; cursor:pointer}
+    .file-list{font-size:12px; color:var(--muted); margin-left:6px}
+    .hidden{display:none}
+
+    @media (max-width:820px){
+      .row{flex-direction:column}
+      .right{margin-left:0}
+    }
+
+    .muted{color:var(--muted)}
+    .danger{color:var(--danger)}
+    .notice{color:var(--success)}
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="card login-center" id="login-card">
+      <h1 style="text-align:center">Task Manager + Chat</h1>
+      <p class="small" style="text-align:center; margin-top:0">Local demo — all data stored in your browser</p>
+      <div id="login-error" class="danger small" style="text-align:center"></div>
+      <label>Username</label>
+      <input id="login-username" placeholder="Username" autocomplete="username">
+      <label>Password</label>
+      <input id="login-password" placeholder="Password" type="password" autocomplete="current-password">
+      <div style="display:flex; gap:8px; margin-top:12px; justify-content:center">
+        <button onclick="login()">Login</button>
+        <button class="ghost" onclick="fillDemo()">Demo data</button>
+      </div>
+      <p class="small muted" style="text-align:center; margin-top:10px">Manager: <b>Mo2532</b> / Pass: <b>hrb1583</b> — Employees: emp2511, emp2512, emp2513</p>
+    </div>
+
+    <div id="app" class="hidden">
+      <div class="row" style="align-items:center; margin-bottom:10px">
+        <div>
+          <h2 id="welcome">Welcome</h2>
+          <div class="small muted" id="subline">role</div>
+        </div>
+        <div class="right">
+          <div class="flex">
+            <div id="search-area" style="min-width:240px">
+              <input id="global-search" placeholder="Search tasks & chats..." oninput="renderView()" />
+            </div>
+            <button class="ghost" onclick="exportData()">Export</button>
+            <button onclick="logout()" style="background:#ef4444">Logout</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="card" id="manager-panel" style="display:none">
+            <h3>Manager Menu</h3>
+            <div class="actions">
+              <button onclick="showAssignForm()">Assign Task</button>
+              <button onclick="showAnalytics()">Analytics</button>
+              <button onclick="showRequests()">Requests</button>
+              <button class="ghost" onclick="showAllTasks()">All Tasks</button>
+              <button onclick="openManagerChats()">Chats</button>
+            </div>
+            <div id="assign-slot" style="margin-top:10px"></div>
+            <div style="margin-top:10px">
+              <h4 style="margin:6px 0">Filters</h4>
+              <div class="filters">
+                <select id="filter-employee" onchange="renderView()"></select>
+                <select id="filter-priority" onchange="renderView()">
+                  <option value="">Any priority</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+                <select id="filter-category" onchange="renderView()">
+                  <option value="">Any category</option>
+                </select>
+                <select id="filter-status" onchange="renderView()">
+                  <option value="">Any status</option>
+                  <option value="Done">Done</option>
+                  <option value="Pending">Pending</option>
+                </select>
+                <button class="ghost" onclick="clearFilters()">Clear</button>
+              </div>
+            </div>
+            <div id="manager-content" style="margin-top:12px"></div>
+          </div>
+
+          <div class="card" id="employee-panel" style="display:none">
+            <h3>Employee Menu (<span id="employee-name"></span>)</h3>
+            <div class="actions">
+              <button onclick="showMyTasks()">My Tasks</button>
+              <button onclick="showMarkTask()">Mark Done</button>
+              <button onclick="sendLeaveRequest()">Send Leave Request</button>
+              <button class="ghost" onclick="showAllTasks()">All Tasks</button>
+              <button onclick="openEmployeeChats()">Chats</button>
+            </div>
+
+            <div style="margin-top:12px">
+              <label>Filter:</label>
+              <div class="filters">
+                <input id="emp-filter-text" placeholder="keyword" oninput="renderView()" />
+                <select id="emp-filter-priority" onchange="renderView()">
+                  <option value="">Any priority</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+                <button class="ghost" onclick="clearFilters()">Clear</button>
+              </div>
+            </div>
+
+            <div id="employee-content" style="margin-top:12px"></div>
+            <div style="margin-top:10px">
+              <div class="small muted">Progress</div>
+              <div class="progress-bar" style="margin-top:6px">
+                <div id="emp-progress" class="progress-fill" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div id="main-content" class="card">
+            <div id="main-slot"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/* ======= Combined Task Manager + Chat (localStorage) =======
+   - Adds chat features:
+     * Manager <-> Employee private chats (channels keyed 'manager-<emp>')
+     * Employees group chat (channel 'employees-group')
+     * File attachments via plus button (stored base64 in message.attachments)
+   - All data under STORAGE_KEY in localStorage
+   ======================================================= */
+
+/* ---------- credentials & initial employees ---------- */
+const manager = { username: "Mo2532", password: "hrb1583" };
+let employees = {
+  "emp2511": { password: "jk4733", name: "Employee 1" },
+  "emp2512": { password: "qa2034", name: "Employee 2" },
+  "emp2513": { password: "sa2409", name: "Employee 3" }
+};
+
+/* ---------- storage ---------- */
+const STORAGE_KEY = "tm_v2_data_with_chat";
+function defaultData(){
+  return {
+    employees,
+    tasks: {},
+    requests: [],
+    messages: {
+      // example structure:
+      // "manager-emp2511": [ {from:'Mo2532', text:'Hi', time:ISO, attachments: [{name,data}]} ],
+      // "employees-group": [ {...} ]
+    }
+  };
+}
+function getData(){
+  let s = localStorage.getItem(STORAGE_KEY);
+  if(!s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData())); return JSON.parse(localStorage.getItem(STORAGE_KEY)); }
+  try{ return JSON.parse(s); } catch(e){ localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData())); return JSON.parse(localStorage.getItem(STORAGE_KEY)); }
+}
+function setData(d){ localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+
+/* ---------- app state ---------- */
+let currentUser = null;
+let currentRole = null;
+
+/* ---------- utils ---------- */
+function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,10); }
+function nowISO(){ return new Date().toISOString(); }
+function formatDate(iso){ if(!iso) return '—'; let d=new Date(iso); return d.toLocaleString(); }
+function remainingAndClass(dueISO){
+  if(!dueISO) return {text:'No deadline', cls:'deadline-good'};
+  const due = new Date(dueISO), now = new Date();
+  const diff = due - now;
+  if(diff <= 0) return {text:'Overdue', cls:'deadline-over'};
+  const days = Math.floor(diff / (24*3600*1000));
+  const hours = Math.floor((diff % (24*3600*1000)) / 3600000);
+  const mins = Math.floor((diff % 3600000)/60000);
+  if(days >= 1) return {text: `${days}d ${hours}h left`, cls:'deadline-good'};
+  if(hours >= 1) return {text: `${hours}h ${mins}m left`, cls:'deadline-soon'};
+  return {text: `${mins}m left`, cls:'deadline-soon'};
+}
+
+/* ---------- login/demo ---------- */
+function login(){
+  const user = document.getElementById('login-username').value.trim();
+  const pass = document.getElementById('login-password').value;
+  document.getElementById('login-error').textContent = '';
+  const d = getData();
+  if(user === manager.username && pass === manager.password){
+    currentUser = user; currentRole = 'manager'; showApp();
+  } else if(d.employees[user] && d.employees[user].password === pass){
+    currentUser = user; currentRole = 'employee'; showApp();
+  } else {
+    document.getElementById('login-error').textContent = 'Invalid username or password.';
+  }
+}
+
+function fillDemo(){
+  const d = getData();
+  const users = Object.keys(d.employees);
+  users.forEach((u,i)=>{
+    if(!d.tasks[u]) d.tasks[u] = [];
+    d.tasks[u].push({
+      id: uid('t'),
+      details: `Demo task ${i+1}`,
+      due: new Date(Date.now() + (i+1)*5*3600*1000).toISOString(),
+      assigned: nowISO(),
+      done:false, doneAt:null,
+      priority: i===0?'High':(i===1?'Medium':'Low'),
+      category: i%2===0?'General':'QA',
+      recurring: 'none',
+      attachments: [],
+      createdBy: manager.username
+    });
+  });
+  // add some chat demo messages
+  d.messages['employees-group'] = [
+    { from: 'emp2512', text: 'Morning team!', time: nowISO(), attachments: [] },
+    { from: 'emp2511', text: 'Morning — I started task 1', time: nowISO(), attachments: [] }
+  ];
+  d.messages[`manager-emp2511`] = [
+    { from: 'Mo2532', text: 'Please update the status when done.', time: nowISO(), attachments: [] }
+  ];
+  setData(d);
+  alert('Demo data added. Login as manager to explore manager features.');
+}
+
+/* ---------- show/hide UI ---------- */
+function showApp(){
+  document.getElementById('login-card').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('welcome').textContent = `Hello, ${currentUser}`;
+  document.getElementById('subline').textContent = currentRole === 'manager' ? 'Manager dashboard' : 'Employee dashboard';
+  document.getElementById('manager-panel').style.display = currentRole === 'manager' ? 'block' : 'none';
+  document.getElementById('employee-panel').style.display = currentRole === 'employee' ? 'block' : 'none';
+  if(currentRole === 'employee') document.getElementById('employee-name').textContent = currentUser;
+  populateFilterOptions();
+  renderView();
+}
+function logout(){
+  currentUser = null; currentRole = null;
+  document.getElementById('login-username').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-card').classList.remove('hidden');
+  document.getElementById('main-slot').innerHTML = '';
+}
+
+/* ---------- filters ---------- */
+function populateFilterOptions(){
+  const d = getData();
+  const empSel = document.getElementById('filter-employee');
+  empSel.innerHTML = '<option value="">All employees</option>' + Object.keys(d.employees).map(e=>`<option value="${e}">${e}</option>`).join('');
+  const catSet = new Set();
+  Object.values(d.tasks).flat().forEach(t=> t.category && catSet.add(t.category));
+  const catSel = document.getElementById('filter-category');
+  catSel.innerHTML = '<option value="">Any category</option>' + [...catSet].map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+
+/* clear filters */
+function clearFilters(){
+  document.getElementById('global-search').value = '';
+  document.getElementById('filter-employee').value = '';
+  document.getElementById('filter-priority').value = '';
+  document.getElementById('filter-category').value = '';
+  document.getElementById('filter-status').value = '';
+  document.getElementById('emp-filter-text') && (document.getElementById('emp-filter-text').value = '');
+  document.getElementById('emp-filter-priority') && (document.getElementById('emp-filter-priority').value = '');
+  renderView();
+}
+
+/* ---------- Task creation/editing (same UI as before) ---------- */
+function showAssignForm(editTask=null, editUser=null){
+  const d = getData();
+  const users = Object.keys(d.employees);
+  const slot = document.getElementById('assign-slot');
+  const categories = new Set(Object.values(d.tasks).flat().map(t=>t.category).filter(Boolean));
+  slot.innerHTML = `
+    <div class="card">
+      <h4>${editTask ? 'Edit Task' : 'Assign Task'}</h4>
+      <label>Employee</label>
+      <select id="assign-employee-select">${users.map(u=>`<option value="${u}">${u}</option>`).join('')}</select>
+      <label>Details</label>
+      <textarea id="assign-details" rows="3" placeholder="Describe the task..."></textarea>
+      <div class="row" style="margin-top:8px">
+        <div style="flex:1">
+          <label>Due (hours from now)</label>
+          <input id="assign-hours" type="number" min="1" value="24" />
+        </div>
+        <div style="width:140px">
+          <label>Priority</label>
+          <select id="assign-priority">
+            <option value="High">High</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+      </div>
+      <label>Category</label>
+      <input id="assign-category" placeholder="e.g. Bug, Feature, QA" list="catlist"/>
+      <datalist id="catlist">${[...categories].map(c=>`<option value="${c}">`).join('')}</datalist>
+      <div style="margin-top:8px" class="flex">
+        <label style="margin-right:8px">Recurring</label>
+        <select id="assign-recurring">
+          <option value="none">None</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+        </select>
+      </div>
+      <div style="margin-top:10px" class="flex">
+        <button id="assign-btn">${editTask ? 'Save changes' : 'Assign Task'}</button>
+        <button class="ghost" onclick="document.getElementById('assign-slot').innerHTML=''">Cancel</button>
+      </div>
+      <div id="assign-msg" class="small muted" style="margin-top:8px"></div>
+    </div>
+  `;
+  if(editTask){
+    document.getElementById('assign-employee-select').value = editUser;
+    document.getElementById('assign-details').value = editTask.details;
+    const hoursLeft = Math.max(1, Math.round((new Date(editTask.due) - new Date())/3600000));
+    document.getElementById('assign-hours').value = hoursLeft;
+    document.getElementById('assign-priority').value = editTask.priority || 'Medium';
+    document.getElementById('assign-category').value = editTask.category || '';
+    document.getElementById('assign-recurring').value = editTask.recurring || 'none';
+  }
+  document.getElementById('assign-btn').onclick = ()=>{
+    const emp = document.getElementById('assign-employee-select').value;
+    const details = document.getElementById('assign-details').value.trim();
+    const hours = parseFloat(document.getElementById('assign-hours').value);
+    const priority = document.getElementById('assign-priority').value;
+    const category = document.getElementById('assign-category').value.trim();
+    const recurring = document.getElementById('assign-recurring').value;
+    if(!details || !emp || isNaN(hours) || hours<=0){ document.getElementById('assign-msg').textContent = 'Please fill required fields.'; return; }
+    const ddata = getData();
+    const due = new Date(Date.now() + hours*3600*1000).toISOString();
+    if(editTask){
+      const tasksArr = ddata.tasks[editUser] || [];
+      const idx = tasksArr.findIndex(t=>t.id===editTask.id);
+      if(idx!==-1){
+        tasksArr[idx].details = details;
+        tasksArr[idx].due = due;
+        tasksArr[idx].priority = priority;
+        tasksArr[idx].category = category;
+        tasksArr[idx].recurring = recurring;
+        ddata.tasks[editUser] = tasksArr;
+        setData(ddata);
+        document.getElementById('assign-msg').textContent = 'Saved changes.';
+        renderView();
+        document.getElementById('assign-slot').innerHTML = '';
+        return;
+      }
+    }
+    const task = {
+      id: uid('t'),
+      details, due,
+      assigned: nowISO(),
+      done:false, doneAt:null,
+      priority, category,
+      recurring, attachments: [],
+      createdBy: currentUser
+    };
+    if(!ddata.tasks[emp]) ddata.tasks[emp]=[];
+    ddata.tasks[emp].push(task);
+    setData(ddata);
+    document.getElementById('assign-msg').textContent = 'Task assigned!';
+    populateFilterOptions();
+    renderView();
+    document.getElementById('assign-details').value = '';
+  };
+}
+
+/* ---------- render tasks list ---------- */
+function renderView(){
+  const d = getData();
+  const main = document.getElementById('main-slot');
+  main.innerHTML = '';
+  const q = (document.getElementById('global-search').value || '').toLowerCase();
+  const fEmp = document.getElementById('filter-employee') ? document.getElementById('filter-employee').value : '';
+  const fPri = document.getElementById('filter-priority') ? document.getElementById('filter-priority').value : '';
+  const fCat = document.getElementById('filter-category') ? document.getElementById('filter-category').value : '';
+  const fStatus = document.getElementById('filter-status') ? document.getElementById('filter-status').value : '';
+  const empFilterText = document.getElementById('emp-filter-text') ? document.getElementById('emp-filter-text').value.toLowerCase() : '';
+  const empPri = document.getElementById('emp-filter-priority') ? document.getElementById('emp-filter-priority').value : '';
+
+  const flat = [];
+  Object.entries(d.tasks).forEach(([user, arr])=>{
+    arr.forEach(t=> flat.push({user, task:t}));
+  });
+
+  let viewList = flat.filter(item=>{
+    if(currentRole === 'employee' && item.user !== currentUser) return false;
+    if(fEmp && item.user !== fEmp) return false;
+    if(fPri && item.task.priority !== fPri) return false;
+    if(fCat && item.task.category !== fCat) return false;
+    if(fStatus){
+      if(fStatus === 'Done' && !item.task.done) return false;
+      if(fStatus === 'Pending' && item.task.done) return false;
+    }
+    if(empFilterText && currentRole === 'employee'){
+      if(!item.task.details.toLowerCase().includes(empFilterText)) return false;
+    }
+    if(empPri && currentRole === 'employee' && item.task.priority !== empPri) return false;
+    if(q){
+      // also search chats message texts for the query? — keep tasks only for speed
+      if(!(item.task.details.toLowerCase().includes(q) || (item.task.category||'').toLowerCase().includes(q) || item.user.toLowerCase().includes(q))) return false;
+    }
+    return true;
+  });
+
+  viewList.sort((a,b)=>{
+    if(a.task.done !== b.task.done) return a.task.done ? 1 : -1;
+    return new Date(a.task.due || 0) - new Date(b.task.due || 0);
+  });
+
+  if(currentRole === 'manager'){
+    main.innerHTML = '<h3>Tasks</h3>';
+    if(viewList.length === 0) main.innerHTML += '<div class="small muted">No tasks found.</div>';
+    viewList.forEach(({user,task})=>{
+      const rem = remainingAndClass(task.due);
+      const priCls = task.priority === 'High' ? 'priority-high' : (task.priority === 'Medium' ? 'priority-med' : 'priority-low');
+      const statusText = task.done ? 'Done' : 'In Progress';
+      main.innerHTML += `
+        <div class="task-item">
+          <div style="width:10px"></div>
+          <div class="task-meta">
+            <div style="display:flex; gap:10px; align-items:center">
+              <div class="task-title">${escapeHtml(task.details)}</div>
+              <div class="badge ${priCls}">${task.priority}</div>
+              <div class="small muted">${task.category || ''}</div>
+              <div class="small" style="margin-left:8px">— ${user}</div>
+              <div class="small ${rem.cls}" style="margin-left:auto">${rem.text}</div>
+            </div>
+            <div class="small muted">Assigned: ${formatDate(task.assigned)} • Status: ${statusText}</div>
+            ${task.attachments && task.attachments.length ? `<div class="attach-preview">${task.attachments.map(a=>`<div class="attach-thumb">${escapeHtml(a.name)} <a href="${a.data}" download="${escapeHtml(a.name)}">download</a></div>`).join('')}</div>` : ''}
+          </div>
+          <div style="min-width:140px; text-align:right">
+            ${task.done ? `<div class="small notice">Completed ${formatDate(task.doneAt)}</div>` : `<button class="ghost" onclick='triggerEdit(${JSON.stringify(escapeTaskForInline(task))}, "${user}")'>Edit</button><button onclick='deleteTask("${task.id}", "${user}")' style="background:${'#ef4444'}; margin-left:6px">Delete</button>`}
+          </div>
+        </div>
+      `;
+    });
+  } else {
+    main.innerHTML = '<h3>My Tasks</h3>';
+    if(viewList.length === 0) main.innerHTML += '<div class="small muted">No tasks.</div>';
+    viewList.forEach(({user,task})=>{
+      const rem = remainingAndClass(task.due);
+      const priCls = task.priority === 'High' ? 'priority-high' : (task.priority === 'Medium' ? 'priority-med' : 'priority-low');
+      const statusText = task.done ? 'Done' : 'In Progress';
+      main.innerHTML += `
+        <div class="task-item">
+          <div class="task-meta">
+            <div style="display:flex; gap:8px; align-items:center">
+              <div class="task-title">${escapeHtml(task.details)}</div>
+              <div class="badge ${priCls}">${task.priority}</div>
+              <div class="small muted">${task.category || ''}</div>
+              <div style="margin-left:auto" class="${rem.cls} small">${rem.text}</div>
+            </div>
+            <div class="small muted">Assigned: ${formatDate(task.assigned)} • Status: ${statusText}</div>
+            ${task.attachments && task.attachments.length ? `<div class="attach-preview">${task.attachments.map((a,idx)=>`<div class="attach-thumb">${escapeHtml(a.name)} <a href="${a.data}" download="${escapeHtml(a.name)}">download</a></div>`).join('')}</div>` : ''}
+          </div>
+          <div style="min-width:140px; text-align:right">
+            ${task.done ? `<div class="small notice">Completed ${formatDate(task.doneAt)}</div>` : `<button onclick='prepareMarkDone("${task.id}")'>Mark Done</button>`}
+          </div>
+        </div>
+      `;
+    });
+    updateEmployeeProgress();
+  }
+}
+
+/* ---------- helpers ---------- */
+function escapeHtml(s){
+  if(!s && s!=='') return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escapeTaskForInline(task){
+  return {
+    id: task.id,
+    details: task.details,
+    due: task.due,
+    priority: task.priority,
+    category: task.category,
+    recurring: task.recurring || 'none'
+  };
+}
+function triggerEdit(encodedTask, user){
+  // encodedTask is a small object, find full and open edit
+  const d = getData();
+  const arr = d.tasks[user] || [];
+  const full = arr.find(t => t.id === encodedTask.id);
+  if(full) showAssignForm(full, user);
+}
+
+/* ---------- delete task ---------- */
+function deleteTask(taskId, user){
+  if(!confirm('Delete this task?')) return;
+  const d = getData();
+  if(!d.tasks[user]) return;
+  d.tasks[user] = d.tasks[user].filter(t=>t.id !== taskId);
+  setData(d);
+  populateFilterOptions();
+  renderView();
+}
+
+/* ---------- mark task done ---------- */
+function prepareMarkDone(taskId){
+  const d = getData();
+  const tasks = d.tasks[currentUser] || [];
+  const t = tasks.find(x => x.id === taskId);
+  if(!t) return alert('Task not found.');
+  const main = document.getElementById('main-slot');
+  main.innerHTML = `
+    <h3>Mark Task Done</h3>
+    <div class="card">
+      <div><b>${escapeHtml(t.details)}</b></div>
+      <div class="small muted">Due: ${formatDate(t.due)}</div>
+      <label>Completion notes (optional)</label>
+      <textarea id="done-notes" rows="3"></textarea>
+      <label>Attach files (optional)</label>
+      <input id="done-files" type="file" multiple />
+      <div style="margin-top:8px" class="flex">
+        <button onclick='confirmMarkDone("${t.id}")'>Confirm Done</button>
+        <button class="ghost" onclick="renderView()">Cancel</button>
+      </div>
+    </div>
+  `;
+}
+function confirmMarkDone(taskId){
+  const filesInput = document.getElementById('done-files');
+  const notes = document.getElementById('done-notes').value.trim();
+  const files = filesInput.files;
+  const d = getData();
+  const tasks = d.tasks[currentUser] || [];
+  const idx = tasks.findIndex(t => t.id === taskId);
+  if(idx === -1) return alert('Task not found.');
+  const task = tasks[idx];
+  function finalize(attachments){
+    task.done = true;
+    task.doneAt = nowISO();
+    if(notes) task.completionNotes = notes;
+    if(attachments && attachments.length) task.attachments = task.attachments.concat(attachments);
+    if(task.recurring && task.recurring !== 'none'){
+      const nextDue = computeNextDue(task.due, task.recurring);
+      const newTask = {
+        id: uid('t'),
+        details: task.details,
+        due: nextDue,
+        assigned: nowISO(),
+        done:false, doneAt:null,
+        priority: task.priority,
+        category: task.category,
+        recurring: task.recurring,
+        attachments: [],
+        createdBy: task.createdBy
+      };
+      d.tasks[currentUser].push(newTask);
+    }
+    d.tasks[currentUser][idx] = task;
+    setData(d);
+    renderView();
+    populateFilterOptions();
+    alert('Marked as done!');
+  }
+  if(!files || files.length === 0){ finalize([]); return; }
+  const readers = [];
+  for(let i=0;i<files.length;i++){
+    readers.push(new Promise((res, rej)=>{
+      const f = files[i];
+      const r = new FileReader();
+      r.onload = ()=> res({name: f.name, data: r.result});
+      r.onerror = () => rej('file read error');
+      r.readAsDataURL(f);
+    }));
+  }
+  Promise.all(readers).then(results=>{
+    finalize(results);
+  }).catch(err=>{
+    alert('Error reading files: ' + err);
+  });
+}
+function computeNextDue(currentDueISO, recurring){
+  const cur = new Date(currentDueISO || Date.now());
+  if(recurring === 'daily') cur.setDate(cur.getDate()+1);
+  else if(recurring === 'weekly') cur.setDate(cur.getDate()+7);
+  else cur.setDate(cur.getDate()+1);
+  return cur.toISOString();
+}
+
+/* ---------- requests ---------- */
+function sendLeaveRequest(){
+  const d = getData();
+  if(d.requests.some(r=>r.from===currentUser && r.status==='Pending')) {
+    alert('You already have a pending request.');
+    return;
+  }
+  d.requests.push({from: currentUser, type:'leave', status:'Pending', createdAt: nowISO()});
+  setData(d);
+  alert('Leave request sent.');
+}
+function showRequests(){
+  const d = getData();
+  const pending = d.requests.filter(r=>r.status==='Pending');
+  const slot = document.getElementById('manager-content');
+  slot.innerHTML = '<h4>Requests</h4>';
+  if(pending.length === 0) slot.innerHTML += '<div class="small muted">No pending requests.</div>';
+  pending.forEach((r, idx)=>{
+    slot.innerHTML += `
+      <div style="display:flex; gap:10px; align-items:center; border-bottom:1px solid #f1f5f9; padding:8px 0">
+        <div>${r.from} — ${r.type} — <span class="small muted">${formatDate(r.createdAt)}</span></div>
+        <div style="margin-left:auto">
+          <button class="ghost" onclick='decideRequest(${idx}, true)'>Approve</button>
+          <button onclick='decideRequest(${idx}, false)' style="background:${'#ef4444'}; margin-left:6px">Deny</button>
+        </div>
+      </div>
+    `;
+  });
+}
+function decideRequest(idx, approve){
+  const d = getData();
+  const pendingIdxs = d.requests.map((r,i)=> r.status==='Pending' ? i : -1).filter(i=>i!==-1);
+  const realIdx = pendingIdxs[idx];
+  if(typeof realIdx === 'undefined') return alert('Request not found.');
+  d.requests[realIdx].status = approve ? 'Approved' : 'Denied';
+  setData(d);
+  showRequests();
+}
+
+/* ---------- analytics ---------- */
+function showAnalytics(){
+  const d = getData();
+  const slot = document.getElementById('manager-content');
+  const all = Object.values(d.tasks).flat();
+  const total = all.length;
+  const completed = all.filter(t=>t.done).length;
+  const overdue = all.filter(t=> !t.done && new Date(t.due) < new Date()).length;
+  const compTimes = all.filter(t=>t.done && t.doneAt).map(t=> (new Date(t.doneAt) - new Date(t.assigned))/1000 );
+  const avgSec = compTimes.length ? Math.round(compTimes.reduce((a,b)=>a+b,0)/compTimes.length) : 0;
+  const avgStr = avgSec ? `${Math.floor(avgSec/3600)}h ${Math.floor((avgSec%3600)/60)}m` : '—';
+  const empStats = Object.entries(d.tasks).map(([user,arr])=>{
+    const tot = arr.length;
+    const done = arr.filter(t=>t.done).length;
+    const pct = tot ? Math.round(done/tot*100) : 0;
+    return {user, tot, done, pct};
+  });
+  slot.innerHTML = `
+    <h4>Analytics</h4>
+    <div class="stat-grid">
+      <div class="stat card"><div class="small muted">Total tasks</div><div style="font-weight:700;font-size:18px">${total}</div></div>
+      <div class="stat card"><div class="small muted">Completed</div><div style="font-weight:700;font-size:18px">${completed}</div></div>
+      <div class="stat card"><div class="small muted">Overdue</div><div style="font-weight:700;font-size:18px">${overdue}</div></div>
+      <div class="stat card"><div class="small muted">Avg completion</div><div style="font-weight:700">${avgStr}</div></div>
+    </div>
+    <h4 style="margin-top:10px">Per employee</h4>
+    <div>
+      ${empStats.map(e=>`<div style="margin-bottom:10px"><div class="small">${e.user} — ${e.done}/${e.tot} done</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${e.pct}%"></div></div></div>`).join('')}
+    </div>
+  `;
+}
+
+/* ---------- employee progress ---------- */
+function updateEmployeeProgress(){
+  const d = getData();
+  const tasks = d.tasks[currentUser] || [];
+  const total = tasks.length;
+  const done = tasks.filter(t=>t.done).length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('emp-progress').style.width = pct + '%';
+}
+
+/* ---------- export ---------- */
+function exportData(){
+  const d = getData();
+  const blob = new Blob([JSON.stringify(d, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'task-manager-data.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ===========================
+   Chat features
+   Channels:
+    - "manager-<employeeId>"  : private between manager and employee
+    - "employees-group"       : employees group chat
+   Message: { from, text, time, attachments: [{name,data}] }
+   =========================== */
+
+function ensureChannel(channel){
+  const d = getData();
+  if(!d.messages) d.messages = {};
+  if(!d.messages[channel]) d.messages[channel] = [];
+  setData(d);
+}
+
+/* ---------- manager chat UI ---------- */
+function openManagerChats(){
+  // present a small UI: select employee + chat area
+  const d = getData();
+  const users = Object.keys(d.employees);
+  const slot = document.getElementById('main-slot');
+  slot.innerHTML = `
+    <h3>Manager Chats</h3>
+    <div class="card">
+      <label>Pick employee</label>
+      <select id="manager-chat-employee">${users.map(u=>`<option value="${u}">${u}</option>`).join('')}</select>
+      <div id="manager-chat-area" style="margin-top:10px"></div>
+    </div>
+  `;
+  const sel = document.getElementById('manager-chat-employee');
+  sel.onchange = ()=> renderManagerChat(sel.value);
+  // render first
+  if(users.length) renderManagerChat(users[0]);
+}
+
+/* render manager<->employee chat */
+function renderManagerChat(empId){
+  const channel = `manager-${empId}`;
+  ensureChannel(channel);
+  const d = getData();
+  const msgs = d.messages[channel] || [];
+  const area = document.getElementById('manager-chat-area');
+  area.innerHTML = buildChatWindow(channel, empId, /*isManagerView*/true);
+  scrollChatToBottom(channel);
+}
+
+/* ---------- employee chat UI ---------- */
+function openEmployeeChats(){
+  // show two tabs: Manager chat (private with manager), Team chat (employees)
+  const slot = document.getElementById('main-slot');
+  slot.innerHTML = `
+    <h3>Chats</h3>
+    <div style="display:flex; gap:8px; margin-bottom:8px">
+      <button id="tab-manager-chat">Manager Chat</button>
+      <button id="tab-team-chat" class="ghost">Team Chat</button>
+    </div>
+    <div id="employee-chat-area"></div>
+  `;
+  document.getElementById('tab-manager-chat').onclick = ()=>{
+    document.getElementById('tab-manager-chat').classList.remove('ghost');
+    document.getElementById('tab-team-chat').classList.add('ghost');
+    renderEmployeeManagerChat();
+  };
+  document.getElementById('tab-team-chat').onclick = ()=>{
+    document.getElementById('tab-team-chat').classList.remove('ghost');
+    document.getElementById('tab-manager-chat').classList.add('ghost');
+    renderEmployeeTeamChat();
+  };
+  // default manager chat
+  renderEmployeeManagerChat();
+}
+
+/* employee <-> manager chat (private) */
+function renderEmployeeManagerChat(){
+  const channel = `manager-${currentUser}`;
+  ensureChannel(channel);
+  const container = document.getElementById('employee-chat-area');
+  container.innerHTML = buildChatWindow(channel, /*otherUser*/manager.username, /*isManagerView*/false);
+  scrollChatToBottom(channel);
+}
+
+/* employee team chat */
+function renderEmployeeTeamChat(){
+  const channel = 'employees-group';
+  ensureChannel(channel);
+  const container = document.getElementById('employee-chat-area');
+  container.innerHTML = buildChatWindow(channel, /*otherUser*/'Team', /*isManagerView*/false, /*teamChat*/true);
+  scrollChatToBottom(channel);
+}
+
+/* ---------- chat window builder ---------- */
+function buildChatWindow(channel, otherLabel, isManagerView=false, teamChat=false){
+  // messages area + input row with plus file attach
+  const d = getData();
+  const msgs = d.messages[channel] || [];
+  // build messages HTML
+  let msgsHtml = '';
+  msgs.forEach(m=>{
+    const me = (m.from === currentUser);
+    const cls = me ? 'msg-me' : 'msg-other';
+    const meta = `${m.from} • ${formatDate(m.time)}`;
+    let txt = m.text ? `<div>${escapeHtml(m.text)}</div>` : '';
+    let attHtml = '';
+    if(m.attachments && m.attachments.length){
+      attHtml = `<div class="msg-attach">` + m.attachments.map(a=>{
+        // if data looks like image base64, show img preview
+        if(typeof a.data === 'string' && a.data.startsWith('data:image')){
+          return `<div class="attach-thumb"><img src="${a.data}" alt="${escapeHtml(a.name)}"/><div style="font-size:12px">${escapeHtml(a.name)}</div><a style="font-size:12px" href="${a.data}" download="${escapeHtml(a.name)}">download</a></div>`;
+        } else {
+          return `<div class="attach-thumb">${escapeHtml(a.name)} <a href="${a.data}" download="${escapeHtml(a.name)}">download</a></div>`;
+        }
+      }).join('') + `</div>`;
+    }
+    msgsHtml += `<div class="message" id="msg-${m.time}">
+      <div class="meta small">${meta}</div>
+      <div class="${cls}">${txt}${attHtml}</div>
+    </div>`;
+  });
+
+  // chat input area (we'll wire JS by channel id)
+  const inputHtml = `
+    <div class="chat-window">
+      <div class="chat-messages" id="chat-messages-${channel.replace(/[^a-z0-9\-]/gi,'_')}">${msgsHtml || '<div class="small muted">No messages yet.</div>'}</div>
+      <div class="chat-input-row">
+        <div class="chat-input">
+          <button class="plus-btn" title="Attach files" onclick="triggerChatAttach('${channel}')">📎</button>
+          <input id="chat-text-${channel}" placeholder="Type a message..." style="border:0; outline:none; flex:1" />
+          <div class="file-list small muted" id="chat-filelist-${channel}"></div>
+        </div>
+        <button onclick="sendChatMessage('${channel}', ${isManagerView})">Send</button>
+      </div>
+      <input type="file" id="chat-fileinput-${channel}" class="hidden" multiple onchange="handleChatFiles(event,'${channel}')"/>
+    </div>
+  `;
+  return `<div><h4>${escapeHtml(String(otherLabel))}${teamChat ? ' (Team)' : ''}</h4>${inputHtml}</div>`;
+}
+
+/* ---------- chat send / attach ---------- */
+function triggerChatAttach(channel){
+  const input = document.getElementById(`chat-fileinput-${channel}`);
+  if(!input){
+    // input might not exist (rare), rebuild
+    renderChatRebuildIfNeeded(channel);
+  }
+  document.getElementById(`chat-fileinput-${channel}`).click();
+}
+function renderChatRebuildIfNeeded(channel){
+  // if file input missing, re-render the active chat so it's present
+  // search for manager area or employee area and re-render based on context
+  // naive approach: call openManagerChats() if manager-panel displayed; else openEmployeeChats (it'll render selected tab)
+  if(document.getElementById('manager-panel').style.display !== 'none' && currentRole==='manager'){
+    // try to find selected employee in manager UI, otherwise re-open manager chats
+    openManagerChats();
+  } else {
+    openEmployeeChats();
+  }
+}
+function handleChatFiles(ev, channel){
+  const files = ev.target.files;
+  const listEl = document.getElementById(`chat-filelist-${channel}`);
+  if(!files || files.length===0){ listEl.textContent = ''; return; }
+  const names = [];
+  for(let i=0;i<files.length;i++) names.push(files[i].name);
+  listEl.textContent = names.join(', ');
+  // store temporarily on the file input element for retrieval on send
+  document.getElementById(`chat-fileinput-${channel}`).__files = files;
+}
+function sendChatMessage(channel, isManagerView=false){
+  const textEl = document.getElementById(`chat-text-${channel}`);
+  const fileInput = document.getElementById(`chat-fileinput-${channel}`);
+  const text = textEl ? textEl.value.trim() : '';
+  const files = fileInput && fileInput.__files ? fileInput.__files : null;
+  if(!text && (!files || files.length===0)){ return alert('Write a message or attach a file.'); }
+  // read files if any
+  const readFiles = (filesList) => {
+    if(!filesList || filesList.length===0) return Promise.resolve([]);
+    const promises = [];
+    for(let i=0;i<filesList.length;i++){
+      promises.push(new Promise((res,rej)=>{
+        const f = filesList[i];
+        const r = new FileReader();
+        r.onload = ()=> res({name:f.name, data:r.result});
+        r.onerror = ()=> rej('file read error');
+        r.readAsDataURL(f);
+      }));
+    }
+    return Promise.all(promises);
+  };
+  readFiles(files).then(attachments=>{
+    const d = getData();
+    if(!d.messages) d.messages = {};
+    if(!d.messages[channel]) d.messages[channel] = [];
+    d.messages[channel].push({ from: currentUser, text, time: nowISO(), attachments });
+    setData(d);
+    // clear UI
+    if(textEl) textEl.value = '';
+    if(fileInput){
+      fileInput.value = '';
+      fileInput.__files = null;
+    }
+    const listEl = document.getElementById(`chat-filelist-${channel}`);
+    if(listEl) listEl.textContent = '';
+    // re-render chat area where it is displayed
+    // if manager and current view is manager chat for this employee, refresh
+    if(currentRole === 'manager'){
+      // if manager open and the channel matches, rerender
+      const sel = document.getElementById('manager-chat-employee');
+      if(sel && (`manager-${sel.value}` === channel)){
+        renderManagerChat(sel.value);
+      } else {
+        // maybe not visible; still update chat messages container if present
+        refreshChatMessagesContainer(channel);
+      }
+    } else {
+      // employee view: re-render open tab
+      refreshChatMessagesContainer(channel);
+    }
+  }).catch(err=>{
+    alert('Error attaching files: '+err);
+  });
+}
+
+/* attempt to update only messages container for a channel if it's present in DOM */
+function refreshChatMessagesContainer(channel){
+  const safeId = channel.replace(/[^a-z0-9\-]/gi,'_');
+  const container = document.getElementById(`chat-messages-${safeId}`);
+  if(!container) return;
+  const d = getData();
+  const msgs = d.messages[channel] || [];
+  let msgsHtml = '';
+  msgs.forEach(m=>{
+    const me = (m.from === currentUser);
+    const cls = me ? 'msg-me' : 'msg-other';
+    const meta = `${m.from} • ${formatDate(m.time)}`;
+    let txt = m.text ? `<div>${escapeHtml(m.text)}</div>` : '';
+    let attHtml = '';
+    if(m.attachments && m.attachments.length){
+      attHtml = `<div class="msg-attach">` + m.attachments.map(a=>{
+        if(typeof a.data === 'string' && a.data.startsWith('data:image')){
+          return `<div class="attach-thumb"><img src="${a.data}" alt="${escapeHtml(a.name)}"/><div style="font-size:12px">${escapeHtml(a.name)}</div><a style="font-size:12px" href="${a.data}" download="${escapeHtml(a.name)}">download</a></div>`;
+        } else {
+          return `<div class="attach-thumb">${escapeHtml(a.name)} <a href="${a.data}" download="${escapeHtml(a.name)}">download</a></div>`;
+        }
+      }).join('') + `</div>`;
+    }
+    msgsHtml += `<div class="message" id="msg-${m.time}">
+      <div class="meta small">${meta}</div>
+      <div class="${cls}">${txt}${attHtml}</div>
+    </div>`;
+  });
+  container.innerHTML = msgsHtml || '<div class="small muted">No messages yet.</div>';
+  // scroll to bottom
+  container.scrollTop = container.scrollHeight + 200;
+}
+
+/* scroll chat to bottom helper */
+function scrollChatToBottom(channel){
+  setTimeout(()=> {
+    const safeId = channel.replace(/[^a-z0-9\-]/gi,'_');
+    const container = document.getElementById(`chat-messages-${safeId}`);
+    if(container) container.scrollTop = container.scrollHeight + 200;
+  }, 80);
+}
+
+/* make sure channel exists and show its messages in presence of other views */
+function renderChatRebuildIfNeeded(channel){
+  if(currentRole === 'manager') {
+    // if manager area visible and channel matches selected employee, re-render manager chat
+    const sel = document.getElementById('manager-chat-employee');
+    if(sel && (`manager-${sel.value}` === channel)) renderManagerChat(sel.value);
+  } else {
+    // employee context: re-render current tab
+    const tabManager = document.getElementById('tab-manager-chat');
+    if(tabManager && !tabManager.classList.contains('ghost')) renderEmployeeManagerChat();
+    else renderEmployeeTeamChat();
+  }
+}
+
+/* ---------- initialization ---------- */
+(function init(){
+  getData();
+  document.getElementById('login-password').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') login(); });
+  renderView();
+})();
+</script>
+</body>
+</html>
